@@ -54,7 +54,7 @@ export class SettingsService {
     const base =
       process.env.PUBLIC_URL ||
       process.env.NGROK_URL ||
-      `http://localhost:${process.env.PORT || 3001}`;
+      `http://localhost:${process.env.PORT || 3000}`;
     return {
       gmail: `${base}/webhook/gmail`,
       outlook: `${base}/webhook/outlook`,
