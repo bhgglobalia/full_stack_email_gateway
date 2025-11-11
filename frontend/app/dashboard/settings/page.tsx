@@ -1,22 +1,36 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState,useRef } from "react";
 import { api } from "@/lib/api";
 import toast from "react-hot-toast";
+import { LoadingSpinner } from "@/components/common/LoadingSpinner";
 
-interface SystemStatus {
-  apiKeys: { id: string; name: string; key: string }[];
-  webhooks: { provider: string; url: string }[];
-  workers: { name: string; status: string }[];
-  tokens: { mailbox: string; provider: string; expiresAt: string }[];
+interface MaskedKeys {
+  [key: string]: string;
 }
 
+interface Webhooks {
+  [key: string]: string;
+}
+
+interface WorkerHealth {
+  status: "ok" | "error";
+  lastPing: string;
+}
+
+interface TokenExpiry {
+  email: string;
+  provider: string;
+  tokenExpiresAt: string | null;
+}
 export default function SettingsPage() {
-  const [maskedKeys, setMaskedKeys] = useState<any>(null);
-  const [webhooks, setWebhooks] = useState<any>(null);
-  const [worker, setWorker] = useState<any>(null);
-  const [tokenExpiry, setTokenExpiry] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [maskedKeys, setMaskedKeys] = useState<MaskedKeys | null>(null);
+  const [webhooks, setWebhooks] = useState<Webhooks | null>(null);
+  const [worker, setWorker] = useState<WorkerHealth | null>(null);
+  const [tokenExpiry, setTokenExpiry] = useState<TokenExpiry[]>([]);  const [loading, setLoading] = useState(true);
+
+
+  const errorShownRef = useRef(false);
 
   useEffect(() => {
     (async () => {
@@ -31,8 +45,11 @@ export default function SettingsPage() {
         setWebhooks(webhooksRes.data);
         setWorker(workerRes.data);
         setTokenExpiry(Array.isArray(expiryRes.data) ? expiryRes.data : []);
-      } catch (err) {
-        toast.error(" Failed to fetch settings info");
+      } catch {
+        if (!errorShownRef.current) {
+          toast.error("Failed to fetch settings info");
+          errorShownRef.current = true;
+        }
       } finally {
         setLoading(false);
       }
@@ -40,11 +57,7 @@ export default function SettingsPage() {
   }, []);
 
   if (loading) {
-    return (
-      <div className="flex justify-center items-center h-[70vh]">
-        <p className="text-gray-600 text-lg">Loading system info...</p>
-      </div>
-    );
+    return <LoadingSpinner />;
   }
 
   if (!maskedKeys || !webhooks || !worker) {
@@ -53,7 +66,7 @@ export default function SettingsPage() {
         <p className="text-red-600 text-lg">Failed to load settings data.</p>
       </div>
     );
-  }
+  } // Removed duplicate toast.error here
 
   return (
     <div className="max-w-3xl w-full mx-auto bg-white shadow-lg border border-gray-200 rounded-2xl px-2 sm:px-4 md:px-8 py-4 sm:py-8 mt-2 sm:mt-6 md:mt-10 overflow-x-auto">

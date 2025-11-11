@@ -31,6 +31,7 @@ export default function Navbar() {
         <button
           onClick={logout}
           className="flex items-center gap-1 bg-red-500 text-white px-3 py-1.5 rounded-md text-sm font-medium hover:bg-red-600 active:scale-95 transition"
+          aria-label="Logout"
         >
           <LogOut className="w-4 h-4" />
           <span className="hidden sm:inline">Logout</span>

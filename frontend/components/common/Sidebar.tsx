@@ -25,7 +25,7 @@ export default function Sidebar({ onClose }: { onClose?: () => void }) {
    
       <div className="flex justify-between items-center mb-4 sm:mb-8">
         <h1 className="text-base sm:text-lg font-bold tracking-wide">Email Gateway</h1>
-        <button onClick={onClose} className="sm:hidden text-white hover:bg-blue-800 p-1 rounded-md">
+        <button onClick={onClose} className="sm:hidden text-white hover:bg-blue-800 p-1 rounded-md" aria-label="Close sidebar">
           <X className="w-5 h-5" />
         </button>
       </div>
@@ -39,6 +39,7 @@ export default function Sidebar({ onClose }: { onClose?: () => void }) {
         key={link.href}
         href={link.href}
         onClick={onClose}
+        aria-label={link.name}
         className={`block px-3 py-2 rounded-md font-medium transition relative ${
           pathname === link.href
             ? "bg-blue-900 text-white"

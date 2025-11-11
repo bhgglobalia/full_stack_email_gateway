@@ -1,10 +1,12 @@
+import React from "react";
+
 interface StatCardProps {
   title: string;
   value: string | number;
   icon?: React.ReactNode;
 }
 
-export default function StatCard({ title, value, icon }: StatCardProps) {
+const StatCard = React.memo(function StatCard({ title, value, icon }: StatCardProps) {
   return (
     <div className="flex items-center justify-between bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition">
       <div>
@@ -14,4 +16,5 @@ export default function StatCard({ title, value, icon }: StatCardProps) {
       {icon && <div className="p-3 bg-gray-50 rounded-full">{icon}</div>}
     </div>
   );
-}
+});
+export default StatCard;

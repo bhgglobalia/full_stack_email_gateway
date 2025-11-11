@@ -1,73 +1,92 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { api } from "@/lib/api";
-import { io } from "socket.io-client";
-import { Plus } from "lucide-react";
+import {
+  Plus,
+  Building2,
+  CheckCircle2,
+  AlertTriangle,
+  X,
+} from "lucide-react";
+import { Client } from "@/app/types";
+import { useSocket } from "@/hooks/useSocket";
+import { LoadingSpinner } from "@/components/common/LoadingSpinner";
+import toast from "react-hot-toast";
 
-const socket = io(process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000");
 export default function ClientsPage() {
-  const [clients, setClients] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [form, setForm] = useState({ name: "", emailProvider: "", domain: "" });
+  const [form, setForm] = useState({
+    name: "",
+    emailProvider: "",
+    domain: "",
+  });
 
-  const fetchClients = async () => {
+  const fetchClients = useCallback(async () => {
     try {
       const res = await api.get("/clients");
       setClients(Array.isArray(res.data.data) ? res.data.data : []);
-    } catch (err) {
-      console.error("Failed to fetch clients", err);
+    } catch {
+      toast.error("Failed to fetch clients", { id: "fetch-clients" });
     }
-  };
-
-  useEffect(() => {
-    fetchClients();
-
-    socket.on("clientAdded", () => {
-       
-        fetchClients();
-      });
-
-    socket.on("mailboxAdded", () => {
-      fetchClients();
-    });
-
-
-      return () => {
-        socket.off("clientAdded");
-        socket.off("mailboxAdded");
-      };
   }, []);
 
-  const handleAdd = async () => {
+  useEffect(() => {
+    fetchClients().finally(() => setLoading(false));
+  }, [fetchClients]);
+
+  useSocket(
+    useCallback(
+      (event: string, data: unknown) => {
+        if (event === "clientAdded" || event === "mailboxAdded") {
+          console.log(`${event} event received`, data);
+          fetchClients();
+        }
+      },
+      [fetchClients]
+    )
+  );
+
+  const handleAdd = useCallback(async () => {
     if (!form.name || !form.emailProvider || !form.domain) return;
+    setLoading(true);
     try {
       await api.post("/clients", form);
       setShowModal(false);
       setForm({ name: "", emailProvider: "", domain: "" });
-      fetchClients();
-    } catch (err) {
-      console.error("Failed to add client", err);
+      await fetchClients();
+    } catch {
+      toast.error("Failed to add client");
     } finally {
       setLoading(false);
     }
-  };
+  }, [form, fetchClients]);
+
+  if (loading) {
+    return <LoadingSpinner />;
+  }
 
   return (
-    <div className="p-8 text-black">
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold text-black">Clients ({clients.length})</h1>
+    <div className="p-4 sm:p-8 text-black">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6 sm:mb-8">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-black tracking-tight">Clients ({clients.length})</h1>
+          <p className="text-sm text-gray-600 mt-1">Manage organizations and their mail integrations</p>
+        </div>
         <button
           onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-lg shadow hover:bg-blue-700 transition"
+          className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 sm:px-5 py-2.5 rounded-lg shadow hover:bg-blue-700 active:scale-[0.99] transition"
+          aria-label="Open Add Client Modal"
         >
-          <Plus size={18} /> Add Client
+          <Plus size={18} />
+          <span>Add Client</span>
         </button>
       </div>
 
-      <div className="bg-white rounded-xl shadow border border-gray-300 overflow-x-auto">
+      <div className="hidden sm:block bg-white rounded-xl shadow border border-gray-200 overflow-x-auto">
         <table className="min-w-full border-collapse text-black">
-          <thead className="bg-gray-200 text-black text-sm">
+          <thead className="bg-gray-100/80 text-black text-sm">
             <tr>
               <th className="text-left p-3 font-semibold">Name</th>
               <th className="text-left p-3 font-semibold">Domain</th>
@@ -80,19 +99,31 @@ export default function ClientsPage() {
             {clients.map((c, i) => (
               <tr
                 key={c.id}
-                className={`${
-                  i % 2 === 0 ? "bg-gray-100" : "bg-white"
-                } border-t hover:bg-blue-100 transition`}
+                className={`${i % 2 === 0 ? "bg-gray-50" : "bg-white"} border-t hover:bg-blue-50 transition`}
               >
-                <td className="p-3">{c.name}</td>
-                <td className="p-3">{c.domain}</td>
-                <td className="p-3 capitalize">{c.emailProvider || '-'}</td>
-                <td className="p-3">{c.mailboxes || 0}</td>
+                <td className="p-3">
+                  <span className="font-medium">{c.name}</span>
+                </td>
+                <td className="p-3">
+                  <span className="text-gray-800">{c.domain}</span>
+                </td>
+                <td className="p-3 capitalize">
+                  <span>{c.emailProvider || "-"}</span>
+                </td>
+                <td className="p-3">
+                  <span className="inline-flex items-center justify-center px-2 py-1 rounded-md bg-gray-100 text-gray-800 text-sm min-w-[2.5rem] text-center">
+                    {c.mailboxes || 0}
+                  </span>
+                </td>
                 <td className="p-3">
                   {c.status === "active" ? (
-                    <span className="text-green-600 font-semibold">✅ Active</span>
+                    <span className="inline-flex items-center gap-1 text-green-600 font-semibold">
+                      <CheckCircle2 size={16} /> Active
+                    </span>
                   ) : (
-                    <span className="text-yellow-600 font-semibold">⚠️ Token Expired</span>
+                    <span className="inline-flex items-center gap-1 text-yellow-700 font-semibold">
+                      <AlertTriangle size={16} /> Token Expired
+                    </span>
                   )}
                 </td>
               </tr>
@@ -101,53 +132,112 @@ export default function ClientsPage() {
         </table>
       </div>
 
-      {showModal && (
-  <div className="fixed inset-0 backdrop-blur-sm bg-black/30 flex justify-center items-center z-50">
-    <div className="bg-white rounded-xl p-6 w-96 shadow-xl text-black">
-      <h2 className="text-xl font-bold mb-4 text-black">Add Client</h2>
-
-      <input
-        type="text"
-        placeholder="Client Name"
-        className="w-full border p-2.5 mb-3 rounded-lg text-black focus:outline-none focus:ring-2 focus:ring-blue-400"
-        value={form.name}
-        onChange={(e) => setForm({ ...form, name: e.target.value })}
-      />
-
-      <input
-        type="text"
-        placeholder="Company Domain"
-        className="w-full border p-2.5 mb-3 rounded-lg text-black focus:outline-none focus:ring-2 focus:ring-blue-400"
-        value={form.domain}
-        onChange={(e) => setForm({ ...form, domain: e.target.value })}
-      />
-
-      <input
-        type="text"
-        placeholder="Email Provider"
-        className="w-full border p-2.5 mb-3 rounded-lg text-black focus:outline-none focus:ring-2 focus:ring-blue-400"
-        value={form.emailProvider}
-        onChange={(e) => setForm({ ...form, emailProvider: e.target.value })}
-      />
-
-      <div className="flex justify-end gap-3 mt-2">
-        <button
-          onClick={() => setShowModal(false)}
-          className="px-4 py-2 rounded-lg border border-gray-400 text-black hover:bg-gray-200 transition"
-        >
-          Cancel
-        </button>
-        <button
-          onClick={handleAdd}
-          disabled={loading}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
-        >
-          {loading ? "Saving..." : "Add"}
-        </button>
+      <div className="sm:hidden grid grid-cols-1 gap-3">
+        {clients.map((c) => (
+          <div key={c.id} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+            <div className="flex items-start justify-between">
+              <div>
+                <div className="font-semibold text-gray-900">{c.name}</div>
+                <div className="text-xs text-gray-600">{c.domain}</div>
+              </div>
+              {c.status === "active" ? (
+                <span className="inline-flex items-center gap-1 text-green-600 text-sm font-medium">
+                  <CheckCircle2 size={16} /> Active
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-yellow-700 text-sm font-medium">
+                  <AlertTriangle size={16} /> Token Expired
+                </span>
+              )}
+            </div>
+            <div className="mt-3 flex items-center justify-between text-sm">
+              <div className="text-gray-700 capitalize">{c.emailProvider || "-"}</div>
+              <span className="inline-flex items-center justify-center px-2 py-1 rounded-md bg-gray-100 text-gray-800 text-sm">
+                {c.mailboxes || 0} mailboxes
+              </span>
+            </div>
+          </div>
+        ))}
       </div>
-    </div>
-  </div>
-)}
+
+      {showModal && (
+        <div className="fixed inset-0 backdrop-blur-sm bg-black/30 flex justify-center items-center z-50 p-4">
+          <div className="bg-white rounded-xl p-5 sm:p-6 w-full max-w-md shadow-xl text-black">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg sm:text-xl font-bold text-black inline-flex items-center gap-2">
+                <Building2 size={18} className="text-blue-600" /> Add Client
+              </h2>
+              <button
+                onClick={() => setShowModal(false)}
+                className="p-1 rounded-md hover:bg-gray-100 text-gray-600"
+                aria-label="Close"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <label htmlFor="client-name" className="sr-only">
+              Client Name
+            </label>
+            <input
+              id="client-name"
+              type="text"
+              placeholder="Client Name"
+              aria-label="Client Name"
+              className="w-full border border-gray-300 p-2.5 mb-3 rounded-lg text-black focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+            />
+
+            <label htmlFor="client-domain" className="sr-only">
+              Company Domain
+            </label>
+            <input
+              id="client-domain"
+              type="text"
+              placeholder="Company Domain"
+              aria-label="Company Domain"
+              className="w-full border border-gray-300 p-2.5 mb-3 rounded-lg text-black focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
+              value={form.domain}
+              onChange={(e) => setForm({ ...form, domain: e.target.value })}
+            />
+
+            <label htmlFor="client-emailProvider" className="sr-only">
+              Email Provider
+            </label>
+            <select
+              id="client-emailProvider"
+              aria-label="Email Provider"
+              className="w-full border border-gray-300 p-2.5 mb-3 rounded-lg text-black focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
+              value={form.emailProvider}
+              onChange={(e) => setForm({ ...form, emailProvider: e.target.value })}
+            >
+              <option value="">Select Provider</option>
+              <option value="google">Google</option>
+              <option value="outlook">Outlook</option>
+            </select>
+
+            <div className="flex justify-end gap-3 mt-2">
+              <button
+                onClick={() => setShowModal(false)}
+                className="px-4 py-2 rounded-lg border border-gray-300 text-gray-800 hover:bg-gray-100 transition"
+                aria-label="Cancel Add Client"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAdd}
+                disabled={loading}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
+                aria-label="Add Client"
+              >
+                {loading ? "Saving..." : "Add"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
