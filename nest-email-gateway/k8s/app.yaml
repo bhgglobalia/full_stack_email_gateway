@@ -15,7 +15,6 @@ spec:
     spec:
       containers:
         - name: app
-          # For local clusters (e.g., minikube), build this image locally or replace with a pushed registry image
           image: nest-email-gateway-app:latest
           imagePullPolicy: IfNotPresent
           ports:

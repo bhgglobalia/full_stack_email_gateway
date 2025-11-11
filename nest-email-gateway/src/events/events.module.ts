@@ -11,4 +11,4 @@ import { WsModule } from '../ws/ws.module';
   controllers: [EventsController],
   exports: [EventsService],
 })
-export class EventsModule { }
+export class EventsModule {}

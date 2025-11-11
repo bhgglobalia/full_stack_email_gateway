@@ -12,4 +12,4 @@ import { WsModule } from '../ws/ws.module';
   controllers: [MailboxesController],
   exports: [MailboxesService],
 })
-export class MailboxesModule { }
+export class MailboxesModule {}

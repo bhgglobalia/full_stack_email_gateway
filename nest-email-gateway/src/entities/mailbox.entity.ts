@@ -1,8 +1,21 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn, Unique, UpdateDateColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  ManyToOne,
+  JoinColumn,
+  Unique,
+  UpdateDateColumn,
+  Index,
+} from 'typeorm';
 import { Client } from './client.entity';
 
 @Entity()
 @Unique('uq_mailbox_email_provider_client', ['email', 'provider', 'clientId'])
+@Index(['email', 'provider'])
+@Index(['clientId'])
+@Index(['tokenExpiresAt'])
 export class Mailbox {
   @PrimaryGeneratedColumn()
   id: number;

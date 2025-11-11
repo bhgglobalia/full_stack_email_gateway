@@ -13,13 +13,36 @@ export class MailboxesService {
     private ws: WsGateway,
   ) {}
 
-  async findAll() {
-    const list = await this.repo.find({ order: { addedAt: 'DESC' }, relations: ['client'] });
+  async findAll(
+    skip = 0,
+    take = 100,
+  ): Promise<
+    Array<
+      Mailbox & {
+        status: 'active' | 'expired';
+      }
+    >
+  > {
+    const list = await this.repo.find({
+      select: [
+        'id',
+        'email',
+        'provider',
+        'tokenExpiresAt',
+        'addedAt',
+        'clientId',
+      ],
+      relations: ['client'],
+      order: { addedAt: 'DESC' },
+      skip,
+      take,
+    });
     const now = new Date();
     return list.map((m) => {
-      const status = !m.tokenExpiresAt || m.tokenExpiresAt > now ? 'active' : 'expired';
-   
-      return { ...m, status } as any;
+      const status =
+        !m.tokenExpiresAt || m.tokenExpiresAt > now ? 'active' : 'expired';
+
+      return { ...m, status };
     });
   }
 
@@ -27,10 +50,7 @@ export class MailboxesService {
     const now = new Date();
 
     return this.repo.count({
-      where: [
-        { tokenExpiresAt: IsNull() },
-        { tokenExpiresAt: MoreThan(now) },
-      ],
+      where: [{ tokenExpiresAt: IsNull() }, { tokenExpiresAt: MoreThan(now) }],
     });
   }
 
@@ -39,7 +59,10 @@ export class MailboxesService {
     if (!mb) throw new Error('Mailbox not found');
     mb.tokenExpiresAt = new Date(Date.now() + extendSeconds * 1000);
     const saved = await this.repo.save(mb);
-    const withClient = await this.repo.findOne({ where: { id: saved.id }, relations: ['client'] });
+    const withClient = await this.repo.findOne({
+      where: { id: saved.id },
+      relations: ['client'],
+    });
     this.ws.emit('mailboxUpdated', withClient);
     return withClient;
   }
@@ -52,15 +75,24 @@ export class MailboxesService {
     expiresInSecs?: number,
     clientId?: string,
   ) {
-
     const p = (provider || '').toLowerCase();
-    const providerNorm = p.includes('google') || p.includes('gmail') ? 'google' : (p.includes('microsoft') || p.includes('outlook') ? 'outlook' : p);
- 
+    const providerNorm =
+      p.includes('google') || p.includes('gmail')
+        ? 'google'
+        : p.includes('microsoft') || p.includes('outlook')
+          ? 'outlook'
+          : p;
+
     if (clientId) {
       const client = await this.clients.findOne({ where: { id: clientId } });
       if (client) {
         const clientProv = (client.emailProvider || '').toLowerCase();
-        const clientProvNorm = clientProv.includes('google') || clientProv.includes('gmail') ? 'google' : (clientProv.includes('microsoft') || clientProv.includes('outlook') ? 'outlook' : clientProv);
+        const clientProvNorm =
+          clientProv.includes('google') || clientProv.includes('gmail')
+            ? 'google'
+            : clientProv.includes('microsoft') || clientProv.includes('outlook')
+              ? 'outlook'
+              : clientProv;
         if (clientProvNorm && clientProvNorm !== providerNorm) {
           throw new Error(`Client is already connected to ${clientProvNorm}`);
         }
@@ -75,7 +107,7 @@ export class MailboxesService {
     if (clientId) where.clientId = clientId;
     const existing = await this.repo.findOne({ where });
     const expiry: Date | null = expiresInSecs
-      ? new Date(Date.now() + (expiresInSecs as number) * 1000)
+      ? new Date(Date.now() + expiresInSecs * 1000)
       : null;
 
     if (existing) {
@@ -83,7 +115,10 @@ export class MailboxesService {
       existing.refreshToken = refreshToken ?? null;
       existing.tokenExpiresAt = expiry;
       const saved = await this.repo.save(existing);
-      const withClient = await this.repo.findOne({ where: { id: saved.id }, relations: ['client'] });
+      const withClient = await this.repo.findOne({
+        where: { id: saved.id },
+        relations: ['client'],
+      });
       this.ws.emit('mailboxAdded', withClient);
       return withClient;
     }
@@ -98,7 +133,10 @@ export class MailboxesService {
     });
 
     const savedNew = await this.repo.save(mb);
-    const withClientNew = await this.repo.findOne({ where: { id: savedNew.id }, relations: ['client'] });
+    const withClientNew = await this.repo.findOne({
+      where: { id: savedNew.id },
+      relations: ['client'],
+    });
     this.ws.emit('mailboxAdded', withClientNew);
     return withClientNew;
   }

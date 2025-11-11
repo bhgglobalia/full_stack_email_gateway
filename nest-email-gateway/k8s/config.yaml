@@ -16,7 +16,7 @@ metadata:
   name: app-secrets
   namespace: email-gateway
 stringData:
-  # Keep secrets out of git in real setups. Provided here for local/dev convenience.
+
   JWT_SECRET: "super-secret-jwt-key"
-  # App expects DATABASE_URL in AppModule
+
   DATABASE_URL: "postgres://postgres:newpassword@postgres:5432/email_gateway"

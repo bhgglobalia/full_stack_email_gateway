@@ -45,7 +45,11 @@ export class SettingsController {
 
   @Get('ping/app')
   ping() {
-    return { success: true, ts: new Date().toISOString(), service: 'nest-email-gateway' };
+    return {
+      success: true,
+      ts: new Date().toISOString(),
+      service: 'nest-email-gateway',
+    };
   }
 
   @Get('ping/worker')

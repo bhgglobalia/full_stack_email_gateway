@@ -1,4 +1,10 @@
-import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  Logger,
+  OnModuleInit,
+  OnModuleDestroy,
+} from '@nestjs/common';
 import { Queue, Worker, QueueEvents, Job, JobsOptions } from 'bullmq';
 import Redis from 'ioredis';
 import { EventsService } from '../events/events.service';
@@ -26,23 +32,26 @@ export class WorkerService implements OnModuleInit, OnModuleDestroy {
   constructor(
     private events: EventsService,
     @InjectRepository(Mailbox) private mailboxes: Repository<Mailbox>,
+    @Inject('REDIS_CLIENT') private readonly redisClient: Redis,
   ) {}
 
   async onModuleInit() {
-    this.redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379',{
-      maxRetriesPerRequest: null,
-    });
+    this.redis = this.redisClient;
     this.queue = new Queue<InboundJob>(INBOUND_QUEUE_NAME, {
       connection: this.redis,
     });
     this.queueEvents = new QueueEvents(INBOUND_QUEUE_NAME, {
       connection: this.redis,
     });
-    this.worker = new Worker<InboundJob>(INBOUND_QUEUE_NAME, async (job: Job<InboundJob>) => {
-      await this.process(job.data);
-    }, {
-      connection: this.redis,
-    });
+    this.worker = new Worker<InboundJob>(
+      INBOUND_QUEUE_NAME,
+      async (job: Job<InboundJob>) => {
+        await this.process(job.data);
+      },
+      {
+        connection: this.redis,
+      },
+    );
     this.logger.log('BullMQ Worker initialized for inbound emails');
   }
 
@@ -50,7 +59,6 @@ export class WorkerService implements OnModuleInit, OnModuleDestroy {
     await this.queue.close();
     await this.worker.close();
     await this.queueEvents.close();
-    await this.redis.quit();
   }
 
   async enqueueInbound(job: InboundJob, opts?: JobsOptions) {
@@ -70,15 +78,16 @@ export class WorkerService implements OnModuleInit, OnModuleDestroy {
         status: 'ok',
         timestamp: now,
         provider: job.provider,
-        subject: job.subject || `New ${job.provider} message @ ${now.toLocaleTimeString()}`,
+        subject:
+          job.subject ||
+          `New ${job.provider} message @ ${now.toLocaleTimeString()}`,
         sender: 'sender@example.com',
         attachments: job.attachments || [],
       };
-      if (mailbox) (eventPayload as any).mailbox = mailbox;
+      if (mailbox) eventPayload.mailbox = mailbox;
       await this.events.createNormalized(eventPayload);
     } catch (e) {
       this.logger.error('Failed processing inbound job', e as any);
     }
   }
 }
-

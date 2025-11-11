@@ -1,19 +1,27 @@
-import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn } from "typeorm";
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
 
 @Entity()
 export class User {
-    @PrimaryGeneratedColumn('uuid')
-    id: string;
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
-    @Column({ unique: true })
-    email: string;
+  @Column({ unique: true })
+  email: string;
 
-    @Column()
-    passwordHash: string;
+  @Column()
+  passwordHash: string;
 
-    @Column({ default: 'admin' })
-    role: string;
+  @Column({ default: 'admin' })
+  role: string;
 
-    @CreateDateColumn()
-    createdAt: Date;
+  @Column({ default: true })
+  mustChangePassword: boolean;
+
+  @CreateDateColumn()
+  createdAt: Date;
 }

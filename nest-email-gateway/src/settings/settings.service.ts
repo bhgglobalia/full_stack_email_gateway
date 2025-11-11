@@ -6,10 +6,16 @@ import { Mailbox } from '../entities/mailbox.entity';
 function maskDbUrl(url?: string | null) {
   if (!url) return null;
 
-  return url.replace(/(\w+):\/\/(.*?):(.*?)@(.*)/, (match, protocol, user, password, rest) => {
-    const maskedPw = password.length > 2 ? password.slice(0, 1) + '••••••' + password.slice(-1) : '••••••';
-    return `${protocol}://${user}:${maskedPw}@${rest}`;
-  });
+  return url.replace(
+    /(\w+):\/\/(.*?):(.*?)@(.*)/,
+    (match, protocol, user, password, rest) => {
+      const maskedPw =
+        password.length > 2
+          ? password.slice(0, 1) + '••••••' + password.slice(-1)
+          : '••••••';
+      return `${protocol}://${user}:${maskedPw}@${rest}`;
+    },
+  );
 }
 
 function maskSecret(val?: string) {
@@ -34,8 +40,10 @@ export class SettingsService {
   }
 
   async getTokenExpiryInfo() {
-    const mailboxes = await this.repo.find();
-    return mailboxes.map(m => ({
+    const mailboxes = await this.repo.find({
+      select: ['email', 'provider', 'tokenExpiresAt'],
+    });
+    return mailboxes.map((m) => ({
       email: m.email,
       provider: m.provider,
       tokenExpiresAt: m.tokenExpiresAt,
@@ -43,7 +51,6 @@ export class SettingsService {
   }
 
   async getWorkerHealth() {
-    
     return {
       status: 'ok',
       lastPing: new Date(),
@@ -76,7 +83,12 @@ export class SettingsService {
       email: m.email,
       provider: m.provider,
       tokenExpiresAt: m.tokenExpiresAt,
-      willExpireInSeconds: m.tokenExpiresAt ? Math.max(0, Math.floor((m.tokenExpiresAt.getTime() - Date.now()) / 1000)) : null,
+      willExpireInSeconds: m.tokenExpiresAt
+        ? Math.max(
+            0,
+            Math.floor((m.tokenExpiresAt.getTime() - Date.now()) / 1000),
+          )
+        : null,
     }));
   }
 }

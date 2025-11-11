@@ -8,14 +8,13 @@ import { JwtStrategy } from './jwt.strategy';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { User } from '../entities/user.entity';
 
-
 @Module({
   imports: [
     PassportModule,
     JwtModule.registerAsync({
       useFactory: async () => ({
         secret: process.env.JWT_SECRET,
-        signOptions: { expiresIn: process.env.JWT_EXPIRATION as any || '7d' },
+        signOptions: { expiresIn: (process.env.JWT_EXPIRATION as any) || '7d' },
       }),
     }),
     TypeOrmModule.forFeature([User]),

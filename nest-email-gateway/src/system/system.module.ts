@@ -7,6 +7,6 @@ import { Mailbox } from 'src/entities/mailbox.entity';
 @Module({
   imports: [TypeOrmModule.forFeature([Mailbox])],
   providers: [SystemService],
-  controllers: [SystemController]
+  controllers: [SystemController],
 })
-export class SystemModule { }
+export class SystemModule {}

@@ -1,7 +1,17 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  JoinColumn,
+  Index,
+} from 'typeorm';
 import { Mailbox } from './mailbox.entity';
 
 @Entity()
+@Index(['mailboxId', 'timestamp'])
+@Index(['provider', 'timestamp'])
+@Index(['direction', 'status'])
 export class Event {
   @PrimaryGeneratedColumn()
   id: number;

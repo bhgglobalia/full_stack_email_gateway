@@ -10,6 +10,6 @@ import { WsModule } from '../ws/ws.module';
 @Module({
   imports: [TypeOrmModule.forFeature([Client, Mailbox]), WsModule],
   providers: [ClientsService],
-  controllers: [ClientsController]
+  controllers: [ClientsController],
 })
 export class ClientsModule {}

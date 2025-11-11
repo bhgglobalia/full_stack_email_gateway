@@ -96,3 +96,167 @@ Nest is an MIT-licensed open source project. It can grow thanks to the sponsors 
 ## License
 
 Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+
+---
+
+# Email Gateway Backend
+
+This backend is a NestJS service that exposes REST endpoints for authentication, clients, mailboxes, events, health, settings, a WebSocket gateway for real-time updates, and webhook receivers for Gmail and Microsoft. It also ships with Docker/Compose and GitHub Actions pipelines.
+
+## Quick Start
+
+### Prerequisites
+
+- Node.js 18+
+- Postgres 16+
+- Redis 7+
+
+### Environment variables
+
+Create a `.env` in `Email_Gateway/nest-email-gateway`:
+
+```
+NODE_ENV=development
+PORT=3000
+
+# Database
+DATABASE_URL=postgres://postgres:password123#@localhost:5432/email_gateway
+
+# Redis
+REDIS_HOST=localhost
+REDIS_PORT=6379
+
+# Auth
+JWT_SECRET=your_jwt_secret
+
+# OAuth (optional for redirects)
+PUBLIC_URL=http://localhost:3000
+FRONTEND_ORIGIN=http://localhost:3001
+GMAIL_CLIENT_ID=your_google_client_id
+MS_CLIENT_ID=your_microsoft_client_id
+MICROSOFT_CLIENT_ID=
+
+# Webhook/event security (optional)
+EVENTS_SHARED_SECRET=change_me
+```
+
+### Run locally (no Docker)
+
+```
+npm ci
+npm run start:dev
+```
+
+### Run with Docker Compose
+
+From `Email_Gateway/nest-email-gateway`:
+
+```
+docker compose up -d
+```
+
+App will be on http://localhost:3000
+
+### Tests and lint
+
+```
+npm test           # unit
+npm run test:cov   # coverage
+npm run test:e2e   # e2e (requires DB/Redis)
+npm run lint       # eslint
+```
+
+## CI/CD
+
+GitHub Actions configured:
+
+- `.github/workflows/backend-ci.yml`: Lint, tests, build on push/PR.
+- `.github/workflows/backend-docker-publish.yml`: Build and push Docker image to GHCR.
+- `.github/workflows/backend-deploy.yml`: SSH to server, `docker compose pull && up -d` using `docker-compose.prod.yml`.
+
+Server-side requirements for deploy:
+
+- Docker + Docker Compose plugin.
+- `${DEPLOY_PATH}/.env` file with the environment variables above.
+
+Repo secrets required:
+
+- `DEPLOY_HOST`, `DEPLOY_USER`, `SSH_PRIVATE_KEY`, `DEPLOY_PATH`.
+
+## API Endpoints
+
+Base URL: `http://localhost:3000`
+
+- Auth (`/auth`)
+  - `POST /auth/login` — body: `{ email, password }` → `{ success, access_token, ... }`
+  - `GET /auth/me` — requires Bearer token → `{ success, user }`
+  - `POST /auth/change-password` — requires Bearer token, body: `{ currentPassword, newPassword }`
+
+- Clients (`/clients`) — requires Bearer token
+  - `GET /clients?skip=&take=` → `{ success, data }`
+  - `POST /clients` body: `CreateClientDto` → `{ success, data }`
+
+- Mailboxes (`/mailboxes`) — requires Bearer token
+  - `GET /mailboxes?skip=&take=` → list with `{ status: 'active'|'expired' }`
+  - `PATCH /mailboxes/:id/refresh` → extend token expiry
+  - `GET /mailboxes/active/count`
+  - `GET /mailboxes/oauth/:provider` → returns `{ redirectUrl }` for `google|microsoft|outlook`
+  - `GET /mailboxes/callback/:provider` → redirects to frontend with result
+
+- Events (`/events`)
+  - `POST /events` — body: `CreateEventDto` — secured via `EVENTS_SHARED_SECRET` header `x-events-secret` if set
+  - `GET /events?limit=&provider=&clientId=&date=` — requires Bearer token
+
+- Mail (`/mail`) — requires Bearer token
+  - `POST /mail/send` — body: `SendMailDto`, optional file `attachment` (multipart)
+  - `GET /mail/queue` — list queued jobs
+
+- Webhooks (`/webhook`)
+  - `POST /webhook/gmail` — body includes `mailboxId`|`resourceId`|`subscription` and optional fields; secured with `x-events-secret` when configured
+  - `POST /webhook/microsoft` — similar: `mailboxId`|`resourceId`|`subscriptionId`
+
+- Settings (`/settings`) — requires Bearer token
+  - `GET /settings/masked-keys`
+  - `GET /settings/webhooks`
+  - `GET /settings/worker-health`
+  - `GET /settings/token-expiry`
+  - `GET /settings` — aggregate view
+  - `GET /settings/ping/app`
+  - `GET /settings/ping/worker`
+
+- System (`/system`) — requires Bearer token
+  - `GET /system/status`
+
+- Health (`/health`)
+  - `GET /health` — Terminus DB health
+
+## WebSockets
+
+WebSocket gateway emits events on the default namespace. Configure CORS via `FRONTEND_ORIGIN`. Server publishes internal events via Redis Pub/Sub channel `ws-events`.
+
+## Architecture
+
+```mermaid
+flowchart LR
+  Browser/Frontend -- REST --> API[NestJS API]
+  Browser/Frontend -- WS --> WS[WebSocket Gateway]
+  API -- TypeORM --> PG[(Postgres)]
+  API -- BullMQ --> Redis[(Redis)]
+  WS -- Pub/Sub --> Redis
+  Webhooks[Email Provider Webhooks] -- HTTP --> API
+```
+
+### Deployment (compose)
+
+```mermaid
+flowchart TB
+  subgraph Server
+    App[Backend Container]
+    DB[(Postgres Container)]
+    Cache[(Redis Container)]
+  end
+  GH[GitHub Actions] -- docker pull/up --> Server
+  App -- connects --> DB
+  App -- connects --> Cache
+```
+
