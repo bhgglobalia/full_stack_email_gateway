@@ -47,9 +47,38 @@ export class AuthService implements OnModuleInit {
         mustChangePassword: true,
       });
       this.logger.warn(
-        `Default admin created. Email: ${email}, Password: ${defaultPassword}`,
+        `Default admin created. Email: ${email}. A temporary password was set and is not logged.`,
       );
-      this.logger.warn('CHANGE DEFAULT PASSWORD IMMEDIATELY!');
+      this.logger.warn(
+        'Set DEFAULT_ADMIN_PASSWORD and run with RESET_ADMIN_PASSWORD=true once to rotate the password, or use the authenticated change-password endpoint.'
+      );
+    }
+
+    const resetFlag = String(process.env.RESET_ADMIN_PASSWORD || '').toLowerCase();
+    const resetRequested = resetFlag === '1' || resetFlag === 'true' || resetFlag === 'yes';
+    if (resetRequested) {
+      const email = process.env.DEFAULT_ADMIN_EMAIL || 'admin@example.com';
+      const newPassword = process.env.DEFAULT_ADMIN_PASSWORD || '';
+      if (!this.isStrongPassword(newPassword)) {
+        this.logger.error('RESET_ADMIN_PASSWORD requested but DEFAULT_ADMIN_PASSWORD is weak or missing');
+        return;
+      }
+      const existing = await this.userRepo.findOne({ where: { email } });
+      const hash = await bcrypt.hash(newPassword, 10);
+      if (existing) {
+        existing.passwordHash = hash;
+        existing.mustChangePassword = true;
+        await this.userRepo.save(existing);
+        this.logger.warn(`Admin password reset for ${email}`);
+      } else {
+        await this.userRepo.save({
+          email,
+          passwordHash: hash,
+          role: 'admin',
+          mustChangePassword: true,
+        });
+        this.logger.warn(`Admin user created with reset for ${email}`);
+      }
     }
   }
 

@@ -8,4 +8,9 @@ export class OAuthRedirectQueryDto {
   @IsEmail()
   @IsOptional()
   email?: string;
+
+  // Alias accepted for Outlook flows: ?outlook=<email>
+  @IsEmail()
+  @IsOptional()
+  outlook?: string;
 }

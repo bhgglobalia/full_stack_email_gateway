@@ -17,6 +17,8 @@ interface InboundJob {
   provider: 'google' | 'outlook';
   subject?: string;
   attachments?: any[];
+  status?: 'ok' | 'fail';
+  error?: string;
 }
 
 const INBOUND_QUEUE_NAME = 'inbound-email-jobs';
@@ -75,7 +77,7 @@ export class WorkerService implements OnModuleInit, OnModuleDestroy {
       const eventPayload: any = {
         mailboxId: mailbox?.id || job.mailboxId || 0,
         direction: 'inbound',
-        status: 'ok',
+        status: job.status || 'ok',
         timestamp: now,
         provider: job.provider,
         subject:
@@ -84,6 +86,7 @@ export class WorkerService implements OnModuleInit, OnModuleDestroy {
         sender: 'sender@example.com',
         attachments: job.attachments || [],
       };
+      if (job.error) eventPayload.error = job.error;
       if (mailbox) eventPayload.mailbox = mailbox;
       await this.events.createNormalized(eventPayload);
     } catch (e) {

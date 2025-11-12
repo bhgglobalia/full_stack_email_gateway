@@ -47,7 +47,7 @@ describe('EventsService', () => {
 
       expect(mockRepo.create).toHaveBeenCalledWith(normalized);
       expect(mockRepo.save).toHaveBeenCalledWith(mockEntity);
-      expect(ws.emit).toHaveBeenCalledWith('email_event', mockEntity);
+      expect(ws.emit).toHaveBeenCalledWith('email_event', { ...mockEntity, id: String(mockEntity.id) });
       expect(result).toEqual(mockEntity);
     });
   });
@@ -58,6 +58,7 @@ describe('EventsService', () => {
         leftJoinAndSelect: jest.fn().mockReturnThis(),
         orderBy: jest.fn().mockReturnThis(),
         take: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
         getMany: jest.fn().mockResolvedValue([{ id: 1 }]),
       };

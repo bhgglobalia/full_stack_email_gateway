@@ -16,12 +16,16 @@ import toast from "react-hot-toast";
 export default function ClientsPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({
     name: "",
     emailProvider: "",
     domain: "",
   });
+
+  const isDuplicateDomain = !!form.domain &&
+    clients.some(c => (c.domain || "").trim().toLowerCase() === form.domain.trim().toLowerCase());
 
   const fetchClients = useCallback(async () => {
     try {
@@ -50,7 +54,11 @@ export default function ClientsPage() {
 
   const handleAdd = useCallback(async () => {
     if (!form.name || !form.emailProvider || !form.domain) return;
-    setLoading(true);
+    if (isDuplicateDomain) {
+      toast.error("Domain already exists. Enter a different domain.");
+      return;
+    }
+    setIsSubmitting(true);
     try {
       await api.post("/clients", form);
       setShowModal(false);
@@ -59,9 +67,9 @@ export default function ClientsPage() {
     } catch {
       toast.error("Failed to add client");
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
-  }, [form, fetchClients]);
+  }, [form, fetchClients, isDuplicateDomain]);
 
   if (loading) {
     return <LoadingSpinner />;
@@ -72,8 +80,7 @@ export default function ClientsPage() {
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6 sm:mb-8">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-black tracking-tight">Clients ({clients.length})</h1>
-          <p className="text-sm text-gray-600 mt-1">Manage organizations and their mail integrations</p>
-        </div>
+          </div>
         <button
           onClick={() => setShowModal(true)}
           className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 sm:px-5 py-2.5 rounded-lg shadow hover:bg-blue-700 active:scale-[0.99] transition"
@@ -188,6 +195,7 @@ export default function ClientsPage() {
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
             />
+            
 
             <label htmlFor="client-domain" className="sr-only">
               Company Domain
@@ -197,10 +205,17 @@ export default function ClientsPage() {
               type="text"
               placeholder="Company Domain"
               aria-label="Company Domain"
-              className="w-full border border-gray-300 p-2.5 mb-3 rounded-lg text-black focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
+              className={`w-full border p-2.5 mb-1 rounded-lg text-black focus:outline-none ${
+                isDuplicateDomain
+                  ? 'border-red-500 focus:ring-2 focus:ring-red-400 focus:border-red-500'
+                  : 'border-gray-300 focus:ring-2 focus:ring-blue-400 focus:border-blue-400'
+              }`}
               value={form.domain}
               onChange={(e) => setForm({ ...form, domain: e.target.value })}
             />
+            {isDuplicateDomain && (
+              <p className="text-xs text-red-600 mb-2">Domain already exists. Enter a different domain.</p>
+            )}
 
             <label htmlFor="client-emailProvider" className="sr-only">
               Email Provider
@@ -227,11 +242,11 @@ export default function ClientsPage() {
               </button>
               <button
                 onClick={handleAdd}
-                disabled={loading}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
+                disabled={isSubmitting || isDuplicateDomain || !form.name || !form.emailProvider || !form.domain}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
                 aria-label="Add Client"
               >
-                {loading ? "Saving..." : "Add"}
+                {isSubmitting ? "Saving..." : "Add"}
               </button>
             </div>
           </div>

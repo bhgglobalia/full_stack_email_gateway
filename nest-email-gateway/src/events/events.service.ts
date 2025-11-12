@@ -10,21 +10,37 @@ export class EventsService {
     @InjectRepository(Event) private repo: Repository<Event>,
     private ws: WsGateway,
   ) {}
-  async createNormalized(normalized: Partial<Event>) {
-    const e = this.repo.create(normalized as any);
-    const saved = await this.repo.save(e);
 
-    this.ws.emit('email_event', saved);
+  async createNormalized(normalized: Partial<Event>) {
+    const e = this.repo.create(normalized as Event);
+    const saved = await this.repo.save(e as Event);
+    this.ws.emit('email_event', { ...saved, id: String(saved.id) });
     return saved;
   }
 
-  async list(limit = 100, provider?: string, clientId?: string, date?: string) {
+  async list(
+    limit = 100,
+    provider?: string,
+    clientId?: string,
+    date?: string,
+    skip: number = 0,
+    cursor?: string,
+  ) {
+    const safeLimit = Number.isFinite(Number(limit)) && Number(limit) > 0
+      ? Math.floor(Number(limit))
+      : 100;
+    const clamped = Math.min(safeLimit, 500);
+    const safeSkip = Number.isFinite(Number(skip)) && Number(skip) >= 0
+      ? Math.floor(Number(skip))
+      : 0;
+    const clampedSkip = Math.min(safeSkip, 10000);
     let qb = this.repo
       .createQueryBuilder('event')
       .leftJoinAndSelect('event.mailbox', 'mailbox')
       .leftJoinAndSelect('mailbox.client', 'client')
       .orderBy('event.timestamp', 'DESC')
-      .take(limit);
+      .take(clamped)
+      .skip(clampedSkip);
     if (provider) {
       qb = qb.andWhere('TRIM(LOWER(event.provider)) = TRIM(LOWER(:provider))', {
         provider,
@@ -42,6 +58,12 @@ export class EventsService {
         start,
         end,
       });
+    }
+    if (cursor) {
+      const cursorDate = new Date(cursor);
+      if (!isNaN(cursorDate.getTime())) {
+        qb = qb.andWhere('event.timestamp < :cursor', { cursor: cursorDate });
+      }
     }
     return qb.getMany();
   }

@@ -1,5 +1,3 @@
-
-
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { api } from "@/lib/api";
@@ -26,7 +24,7 @@ export const useAuthStore = create<AuthState>()(
         const token = res.data.token || res.data.accessToken || res.data.access_token;
         localStorage.setItem("token", token);
 
-      
+
         api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
 
         set({
@@ -37,6 +35,7 @@ export const useAuthStore = create<AuthState>()(
 
       logout: () => {
         localStorage.removeItem("token");
+        delete api.defaults.headers.common["Authorization"];
         set({ user: null, token: null });
         if (typeof window !== "undefined") {
           window.location.href = "/login";
@@ -45,7 +44,7 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: "auth-storage",
-      storage: createJSONStorage(() => localStorage), 
+      storage: createJSONStorage(() => localStorage),
     }
   )
 );

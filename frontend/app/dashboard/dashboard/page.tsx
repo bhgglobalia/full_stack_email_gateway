@@ -14,12 +14,12 @@ export default function DashboardPage() {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const resClients = await api.get("/clients");
+        const [resClients, resActiveMailboxes, resEvents] = await Promise.all([
+          api.get("/clients"),
+          api.get("/mailboxes/active/count"),
+          api.get("/events?limit=1"),
+        ]);
         const clients = Array.isArray(resClients.data.data) ? resClients.data.data : [];
-
-        
-        const resActiveMailboxes = await api.get("/mailboxes/active/count");
-        const resEvents = await api.get("/events?limit=1");
         let lastEvent = "—";
         if (Array.isArray(resEvents.data.data) && resEvents.data.data.length > 0) {
           const ev = resEvents.data.data[0];
@@ -30,9 +30,9 @@ export default function DashboardPage() {
           mailboxes: resActiveMailboxes.data.count || 0,
           lastEvent,
         });
-      } catch  {
-        toast.error("Error fetching stats", { id: "fetch-stats" });
-      }finally{
+      } catch {
+        toast.error("Error fetching dashboard stats. Please refresh.", { id: "fetch-stats" });
+      } finally {
         setLoading(false);
       }
     };
@@ -47,7 +47,6 @@ export default function DashboardPage() {
     <div className="w-full max-w-screen-xl mx-auto text-gray-900 px-3 sm:px-6 md:px-8 py-4 sm:py-8">
       <div className="mb-6 sm:mb-8">
         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-center sm:text-left">Dashboard Overview</h1>
-        <p className="mt-1 text-sm text-gray-600 text-center sm:text-left">Key stats and quick actions for your email gateway</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 mb-8">

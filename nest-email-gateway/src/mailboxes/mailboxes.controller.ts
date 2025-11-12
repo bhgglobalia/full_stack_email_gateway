@@ -7,16 +7,19 @@ import {
   Query,
   Res,
   UseGuards,
+  Req,
+  Post,
 } from '@nestjs/common';
 import { MailboxesService } from './mailboxes.service';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 
 import { ConfigService } from '@nestjs/config';
-import type { Response } from 'express';
+import type { Response, Request } from 'express';
 import { OAuthCallbackQueryDto } from './dto/oauth-callback-query.dto';
 import { OAuthRedirectQueryDto } from './dto/oauth-redirect-query.dto';
 import { oauthConfig } from '../config/oauth.config';
 import { SkipThrottle } from '@nestjs/throttler';
+import { createHmac, randomBytes } from 'crypto';
 @Controller('mailboxes')
 @SkipThrottle()
 export class MailboxesController {
@@ -48,13 +51,44 @@ export class MailboxesController {
     return { success: true, count };
   }
 
+  @UseGuards(JwtAuthGuard)
+  @Post('tokens')
+  async saveTokensJson(@Body() body: any) {
+    const {
+      email,
+      provider,
+      accessToken,
+      refreshToken,
+      expiresInSecs,
+      clientId,
+    } = body || {};
+    const data = await this.svc.saveTokens(
+      email,
+      provider,
+      accessToken,
+      refreshToken,
+      expiresInSecs,
+      clientId,
+    );
+    return { success: true, data };
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Get('oauth/:provider')
   async oauthRedirect(
     @Param('provider') provider: string,
     @Query() q: OAuthRedirectQueryDto,
+    @Req() req?: Request,
   ) {
     const clientId = q.clientId;
-    const email = q.email;
+    const email = q.email || (q as any).outlook;
+    const secret =
+      this.config.get<string>('OAUTH_STATE_SECRET') ||
+      this.config.get<string>('JWT_SECRET') ||
+      'dev_state_secret';
+    const userSub = (req as any)?.user?.sub || (req as any)?.user?.id || null;
+    const nonce = randomBytes(8).toString('hex');
+    const ts = Date.now();
 
     if (provider === 'google') {
       const googleClientId = this.config.get<string>('GMAIL_CLIENT_ID');
@@ -66,10 +100,10 @@ export class MailboxesController {
       }
       const base =
         this.config.get<string>('PUBLIC_URL') || 'http://localhost:3000';
-      const statePayload =
-        clientId || email
-          ? Buffer.from(JSON.stringify({ clientId, email })).toString('base64')
-          : '';
+      const payloadObj = { clientId, email, ts, nonce, sub: userSub };
+      const payload = Buffer.from(JSON.stringify(payloadObj)).toString('base64url');
+      const sig = createHmac('sha256', secret).update(payload).digest('hex');
+      const statePayload = payload ? `${payload}.${sig}` : '';
       return {
         success: true,
         redirectUrl:
@@ -82,6 +116,8 @@ export class MailboxesController {
           '&scope=' +
           encodeURIComponent(oauthConfig.google.scopes) +
           '&access_type=offline' +
+          '&prompt=consent' +
+          '&include_granted_scopes=true' +
           (statePayload ? `&state=${encodeURIComponent(statePayload)}` : ''),
       };
     }
@@ -99,10 +135,10 @@ export class MailboxesController {
         this.config.get<string>('PUBLIC_URL') || 'http://localhost:3000';
       const redirect = base + '/mailboxes/callback/microsoft';
       const scope = encodeURIComponent(oauthConfig.microsoft.scopes);
-      const statePayload =
-        clientId || email
-          ? Buffer.from(JSON.stringify({ clientId, email })).toString('base64')
-          : '';
+      const payloadObj = { clientId, email, ts, nonce, sub: userSub };
+      const payload = Buffer.from(JSON.stringify(payloadObj)).toString('base64url');
+      const sig = createHmac('sha256', secret).update(payload).digest('hex');
+      const statePayload = payload ? `${payload}.${sig}` : '';
       const state = statePayload
         ? `&state=${encodeURIComponent(statePayload)}`
         : '';
@@ -133,27 +169,83 @@ export class MailboxesController {
     const rawState = q.state;
     if (rawState) {
       try {
-        const decoded = JSON.parse(
-          Buffer.from(String(rawState), 'base64').toString('utf-8'),
-        );
-        email = decoded?.email || email;
-        clientId = decoded?.clientId || clientId;
+        const secret =
+          this.config.get<string>('OAUTH_STATE_SECRET') ||
+          this.config.get<string>('JWT_SECRET') ||
+          'dev_state_secret';
+        const [payload, sig] = String(rawState).split('.');
+        const expected = createHmac('sha256', secret).update(payload).digest('hex');
+        if (sig && expected === sig) {
+          const decoded = JSON.parse(
+            Buffer.from(payload, 'base64url').toString('utf-8'),
+          );
+          email = decoded?.email || email;
+          clientId = decoded?.clientId || clientId;
+        } else {
+          const frontend =
+            this.config.get<string>('FRONTEND_ORIGIN') || 'http://localhost:3001';
+          const msg = encodeURIComponent('Invalid OAuth state');
+          return res.redirect(frontend + '/dashboard/mailboxes?error=' + msg);
+        }
       } catch {
         void 0;
       }
     }
     email = email || `user@${provider}.example`;
-    const accessToken = 'mock_access_' + Date.now();
-    const refreshToken = 'mock_refresh_' + Date.now();
     const frontend =
       this.config.get<string>('FRONTEND_ORIGIN') || 'http://localhost:3001';
     try {
+      const base = this.config.get<string>('PUBLIC_URL') || 'http://localhost:3000';
+      let tokenUrl = '';
+      const params = new URLSearchParams();
+      if (provider === 'google') {
+        const client_id = this.config.get<string>('GMAIL_CLIENT_ID');
+        const client_secret = this.config.get<string>('GMAIL_CLIENT_SECRET');
+        params.set('client_id', String(client_id));
+        params.set('client_secret', String(client_secret));
+        params.set('code', String(q.code));
+        params.set('redirect_uri', base + '/mailboxes/callback/google');
+        params.set('grant_type', 'authorization_code');
+        tokenUrl = 'https://oauth2.googleapis.com/token';
+      } else if (provider === 'microsoft' || provider === 'outlook') {
+        const client_id =
+          this.config.get<string>('MS_CLIENT_ID') ||
+          this.config.get<string>('MICROSOFT_CLIENT_ID');
+        const client_secret =
+          this.config.get<string>('MS_CLIENT_SECRET') ||
+          this.config.get<string>('MICROSOFT_CLIENT_SECRET');
+        params.set('client_id', String(client_id));
+        params.set('client_secret', String(client_secret));
+        params.set('code', String(q.code));
+        params.set('redirect_uri', base + '/mailboxes/callback/microsoft');
+        params.set('grant_type', 'authorization_code');
+        tokenUrl = 'https://login.microsoftonline.com/common/oauth2/v2.0/token';
+      } else {
+        const msg = encodeURIComponent('Unknown provider');
+        return res.redirect(frontend + '/dashboard/mailboxes?error=' + msg);
+      }
+
+      const resp = await fetch(tokenUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: params.toString(),
+      });
+      const json: any = await resp.json();
+      if (!resp.ok || !json?.access_token) {
+        const errMsg = encodeURIComponent(json?.error_description || json?.error || 'Token exchange failed');
+        return res.redirect(frontend + '/dashboard/mailboxes?error=' + errMsg);
+      }
+
+      const accessToken = String(json.access_token);
+      const refreshToken = json.refresh_token ? String(json.refresh_token) : undefined;
+      const expiresInSecs = Number(json.expires_in) || 3600;
+
       await this.svc.saveTokens(
         email,
         provider,
         accessToken,
         refreshToken,
-        3600,
+        expiresInSecs,
         clientId,
       );
       return res.redirect(

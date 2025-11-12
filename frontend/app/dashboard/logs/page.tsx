@@ -1,5 +1,5 @@
 "use client";
-
+ 
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { api } from "@/lib/api";
 import { useUnreadLogsStore } from "@/store/unreadLogs";
@@ -7,18 +7,18 @@ import { usePathname } from "next/navigation";
 import { Download, RefreshCw, Mail } from "lucide-react";
 import { Client, EmailEvent } from "@/app/types";
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
-import toast, { Toaster } from "react-hot-toast";
+import toast from "react-hot-toast";
 import { useSocket } from "@/hooks/useSocket";
-
+ 
 const PROVIDERS = ["google", "outlook"];
-
+ 
 export default function LogsPage() {
      
   const resetUnread = useUnreadLogsStore((s) => s.reset);
   useEffect(() => {
     resetUnread();
   }, [resetUnread]);
-
+ 
  
   const [logs, setLogs] = useState<EmailEvent[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -27,7 +27,7 @@ export default function LogsPage() {
   const [selectedDate, setSelectedDate] = useState("");
   const [loading, setLoading] = useState(false);
   const pathname = usePathname();
-
+ 
   
   useEffect(() => {
     api
@@ -37,7 +37,7 @@ export default function LogsPage() {
       })
       .catch(() => toast.error("Failed to fetch clients", { id: "clients-error" }));
   }, []);
-
+ 
   
   const fetchLogs = useCallback(async () => {
     setLoading(true);
@@ -46,11 +46,11 @@ export default function LogsPage() {
       if (selectedProvider !== "") params.provider = selectedProvider;
       if (selectedClientId !== "") params.clientId = String(selectedClientId);
       if (selectedDate !== "") params.date = selectedDate;
-
+ 
       const query = Object.keys(params)
         .map((k) => `${k}=${encodeURIComponent(params[k])}`)
         .join("&");
-
+ 
       const res = await api.get(`/events${query ? "?" + query : ""}`);
       setLogs(
         Array.isArray(res.data.data)
@@ -65,12 +65,12 @@ export default function LogsPage() {
       setLoading(false);
     }
   }, [selectedProvider, selectedClientId, selectedDate]);
-
+ 
   
   useEffect(() => {
     fetchLogs();
   }, [fetchLogs]);
-
+ 
   useSocket(
     useCallback(
       (event: string) => {
@@ -81,12 +81,12 @@ export default function LogsPage() {
       [fetchLogs]
     )
   );
-
+ 
   
   useEffect(() => {
     resetUnread();
   }, [pathname, resetUnread]);
-
+ 
   
   const filteredLogs = useMemo(() => {
     return logs.filter((l) => {
@@ -100,7 +100,7 @@ export default function LogsPage() {
       return true;
     });
   }, [logs, selectedProvider, selectedClientId, selectedDate]);
-
+ 
   
   const handleDownloadCSV = useCallback(() => {
     const csv = filteredLogs
@@ -113,28 +113,25 @@ export default function LogsPage() {
       ])
       .map((row) => row.join(","))
       .join("\n");
-
+ 
     const blob = new Blob([csv], { type: "text/csv" });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
     a.download = "email_logs.csv";
     a.click();
-  }, [filteredLogs]); 
-
+  }, [filteredLogs]);
+ 
   
-
+ 
   return (
     <div className="p-8 text-black">
       
-      <Toaster position="top-right" reverseOrder={false} />
-
-      
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold flex items-center gap-2">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
+        <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
           <Mail className="text-blue-600" /> Email Logs ({filteredLogs.length})
         </h1>
-        <div className="flex gap-3">
+        <div className="flex flex-row gap-2 sm:gap-3 w-full sm:w-auto">
           <button
             onClick={fetchLogs}
             aria-label="Refresh Logs"
@@ -151,10 +148,10 @@ export default function LogsPage() {
             </button>
         </div>
       </div>
-
+ 
       
-      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 flex flex-wrap gap-4 items-center mb-6 shadow-sm">
-        <div className="min-w-[180px]">
+      <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 sm:p-4 flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4 items-stretch sm:items-center mb-5 shadow-sm">
+        <div className="min-w-0 w-full sm:w-[200px]">
           <label className="block text-xs font-semibold text-gray-500 mb-1">
             Provider
           </label>
@@ -162,7 +159,7 @@ export default function LogsPage() {
             value={selectedProvider}
             onChange={(e) => setSelectedProvider(e.target.value)}
             aria-label="Provider Filter"
-            className="w-full border rounded p-2 focus:outline-none focus:ring-2 focus:ring-blue-200"
+            className="w-full border rounded p-2 focus:outline-none focus:ring-2 focus:ring-blue-200 text-sm"
           >
             <option value="">All Providers</option>
             {PROVIDERS.map((p) => (
@@ -172,8 +169,8 @@ export default function LogsPage() {
             ))}
           </select>
         </div>
-
-        <div className="min-w-[180px]">
+ 
+        <div className="min-w-0 w-full sm:w-[200px]">
           <label className="block text-xs font-semibold text-gray-500 mb-1">
             Client
           </label>
@@ -181,7 +178,7 @@ export default function LogsPage() {
             value={selectedClientId}
             onChange={(e) => setSelectedClientId(e.target.value)}
             aria-label="Client Filter"
-            className="w-full border rounded p-2 focus:outline-none focus:ring-2 focus:ring-blue-200"
+            className="w-full border rounded p-2 focus:outline-none focus:ring-2 focus:ring-blue-200 text-sm"
           >
             <option value="">All Clients</option>
             {clients.map((c: Client) => (
@@ -191,8 +188,8 @@ export default function LogsPage() {
             ))}
           </select>
         </div>
-
-        <div className="min-w-[180px]">
+ 
+        <div className="min-w-0 w-full sm:w-[200px]">
           <label className="block text-xs font-semibold text-gray-500 mb-1">
             Date
           </label>
@@ -201,17 +198,17 @@ export default function LogsPage() {
             value={selectedDate}
             onChange={(e) => setSelectedDate(e.target.value)}
             aria-label="Date Filter"
-            className="w-full border rounded p-2 focus:outline-none focus:ring-2 focus:ring-blue-200"
+            className="w-full border rounded p-2 focus:outline-none focus:ring-2 focus:ring-blue-200 text-sm"
           />
         </div>
       </div>
-
-
-      <div className="bg-white rounded-xl shadow border border-gray-300 overflow-x-auto">
+ 
+ 
+      <div className="bg-white rounded-xl shadow border border-gray-300 overflow-x-auto max-w-full">
         {loading ? (
           <LoadingSpinner />
         ) : (
-          <table className="min-w-full border-collapse text-black">
+          <table className="min-w-[640px] sm:min-w-full border-collapse text-black text-xs sm:text-sm">
             <thead className="bg-gray-200 text-black text-sm">
               <tr>
                 <th className="text-left p-3 font-semibold">ID</th>
@@ -250,7 +247,7 @@ export default function LogsPage() {
                           </span>
                         );
                       }
-
+ 
                       if (l.direction === "outbound") {
                         return (
                           <a
@@ -289,3 +286,4 @@ export default function LogsPage() {
     </div>
   );
 }
+ 

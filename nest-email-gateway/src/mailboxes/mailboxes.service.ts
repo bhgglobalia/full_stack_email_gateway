@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, MoreThan, IsNull } from 'typeorm';
 import { Mailbox } from '../entities/mailbox.entity';
@@ -56,7 +56,7 @@ export class MailboxesService {
 
   async refreshTokenExpiry(id: number, extendSeconds = 3600) {
     const mb = await this.repo.findOne({ where: { id } });
-    if (!mb) throw new Error('Mailbox not found');
+    if (!mb) throw new NotFoundException('Mailbox not found');
     mb.tokenExpiresAt = new Date(Date.now() + extendSeconds * 1000);
     const saved = await this.repo.save(mb);
     const withClient = await this.repo.findOne({
@@ -94,7 +94,7 @@ export class MailboxesService {
               ? 'outlook'
               : clientProv;
         if (clientProvNorm && clientProvNorm !== providerNorm) {
-          throw new Error(`Client is already connected to ${clientProvNorm}`);
+          throw new ConflictException(`Client is already connected to ${clientProvNorm}`);
         }
         if (!clientProvNorm) {
           client.emailProvider = providerNorm;
@@ -112,14 +112,16 @@ export class MailboxesService {
 
     if (existing) {
       existing.accessToken = accessToken;
-      existing.refreshToken = refreshToken ?? null;
+      if (typeof refreshToken !== 'undefined' && refreshToken !== null && refreshToken !== '') {
+        existing.refreshToken = refreshToken;
+      }
       existing.tokenExpiresAt = expiry;
       const saved = await this.repo.save(existing);
       const withClient = await this.repo.findOne({
         where: { id: saved.id },
         relations: ['client'],
       });
-      this.ws.emit('mailboxAdded', withClient);
+      this.ws.emit('mailboxUpdated', withClient);
       return withClient;
     }
 

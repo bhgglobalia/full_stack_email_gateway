@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { api } from "@/lib/api";
 import toast from "react-hot-toast";
-import { FiMail } from "react-icons/fi";
+import { Mail } from "lucide-react";
 import { Mailbox } from "@/app/types";
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
 
@@ -86,7 +86,7 @@ export default function ComposePage() {
   return (
     <div className="max-w-3xl mx-auto mt-6 sm:mt-10 bg-white shadow-lg rounded-2xl p-5 sm:p-8 border border-gray-100">
       <div className="flex items-center gap-3 mb-6 sm:mb-8 border-b pb-4">
-        <FiMail className="text-blue-600 text-3xl" />
+        <Mail className="text-blue-600 w-8 h-8" />
         <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">Compose New Email</h1>
       </div>
 

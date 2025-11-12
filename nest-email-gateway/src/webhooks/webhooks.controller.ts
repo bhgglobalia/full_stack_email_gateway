@@ -34,6 +34,27 @@ export class WebhooksController {
       where: { id: mailboxId },
     });
     if (!mailbox) return { success: false, message: 'mailboxId not found' };
+    const now = new Date();
+    const mailboxExpiry = mailbox.tokenExpiresAt
+      ? new Date(mailbox.tokenExpiresAt)
+      : undefined;
+    const envExpiry = process.env.GMAIL_TOKEN_EXPIRY
+      ? new Date(process.env.GMAIL_TOKEN_EXPIRY)
+      : undefined;
+    const isExpired =
+      (!!mailboxExpiry && mailboxExpiry.getTime() <= now.getTime()) ||
+      (!mailboxExpiry && !!envExpiry && envExpiry.getTime() <= now.getTime());
+    if (isExpired) {
+      await this.worker.enqueueInbound({
+        mailboxId,
+        provider: 'google',
+        subject: body.subject,
+        attachments: body.attachments,
+        status: 'fail',
+        error: 'token expired',
+      });
+      return { success: false, message: 'token expired' };
+    }
     await this.worker.enqueueInbound({
       mailboxId,
       provider: 'google',
@@ -60,6 +81,27 @@ export class WebhooksController {
       where: { id: mailboxId },
     });
     if (!mailbox) return { success: false, message: 'mailboxId not found' };
+    const now = new Date();
+    const mailboxExpiry = mailbox.tokenExpiresAt
+      ? new Date(mailbox.tokenExpiresAt)
+      : undefined;
+    const envExpiry = process.env.OUTLOOK_TOKEN_EXPIRY
+      ? new Date(process.env.OUTLOOK_TOKEN_EXPIRY)
+      : undefined;
+    const isExpired =
+      (!!mailboxExpiry && mailboxExpiry.getTime() <= now.getTime()) ||
+      (!mailboxExpiry && !!envExpiry && envExpiry.getTime() <= now.getTime());
+    if (isExpired) {
+      await this.worker.enqueueInbound({
+        mailboxId,
+        provider: 'outlook',
+        subject: body.subject,
+        attachments: body.attachments,
+        status: 'fail',
+        error: 'token expired',
+      });
+      return { success: false, message: 'token expired' };
+    }
     await this.worker.enqueueInbound({
       mailboxId,
       provider: 'outlook',

@@ -17,10 +17,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { token } = useAuthStore();
   const [hydrated, setHydrated] = useState(false);
 
-  // useEffect(() => {
-  //   setHydrated(true);
-  // }, []);
-
   useEffect(() => {
     const timeout = setTimeout(() => setHydrated(true), 0);
     return () => clearTimeout(timeout);

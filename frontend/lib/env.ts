@@ -1,4 +1,3 @@
-console.log("API_URL:", process.env.NEXT_PUBLIC_API_URL);
 const requiredEnvVars = ['NEXT_PUBLIC_API_URL'] as const;
 
 export const env = {
@@ -9,8 +8,7 @@ export const env = {
 if (typeof window === "undefined" && process.env.NODE_ENV !== 'test') {
   requiredEnvVars.forEach((varName) => {
     if (!process.env[varName]) {
-      console.warn(`⚠️  Missing environment variable: ${varName}`);
-      throw new Error(`Missing environment variable: ${varName}`);
+      console.warn(`Missing environment variable: ${varName}`);
     }
   });
 }

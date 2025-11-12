@@ -50,8 +50,12 @@ export class EventsController {
     @Query('provider') provider?: string,
     @Query('clientId') clientId?: string,
     @Query('date') date?: string,
+    @Req() req?: Request,
   ) {
-    const data = await this.svc.list(Number(limit), provider, clientId, date);
+    const raw = Number(limit);
+    const safe = Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 100;
+    const clamped = Math.min(safe, 500);
+    const data = await this.svc.list(clamped, provider, clientId, date);
     return { success: true, data };
   }
 }

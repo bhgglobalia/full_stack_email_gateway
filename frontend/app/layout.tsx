@@ -30,11 +30,14 @@ export default function RootLayout({
     <html lang="en">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >  <Toaster position="top-right" reverseOrder={false}/>
-          <ErrorBoundary>
-        <LogNotificationProvider>{children}</LogNotificationProvider>
+      >
+        <Toaster position="top-right" reverseOrder={false} />
+        <ErrorBoundary>
+          <LogNotificationProvider>
+            {children}
+          </LogNotificationProvider>
         </ErrorBoundary>
-          </body>
+      </body>
     </html>
   );
 }
